@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Bobby's Spin Machine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+    <meta http-equiv="cache-control" content="no-cache" />
+    <meta http-equiv="expires" content="0" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <link rel="stylesheet" href="./css/bootstrap.min.css" />
+    <link rel="icon" href="./img/favicon.ico" type="image/x-icon" />
+
+    <style>
+        @font-face {
+            font-family: Graphik;
+            src: url(./fonts/Graphik-Medium-Web.woff);
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: Graphik, Arial, Helvetica, sans-serif;
+        }
+
+        .question {
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        .innerQuestion {
+            max-height: 100%;
+        }
+
+        .wheel {
+            width: 100%;
+            float: left;
+            text-align: center;
+            height: 100%;
+            overflow: hidden;
+            padding: 1vw;
+        }
+
+        #spin {
+            height: 0.9in;
+            width: 95%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+        }
+
+        @media (orientation: landscape) {
+            .wheel {
+                font-size: 10vh;
+            }
+        }
+
+        @media (orientation: portrait) {
+            .wheel {
+                font-size: 5vh;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+    <div style="display: flex; flex-direction: column; height: 100%">
+        <div style="flex: 1" class="wheel clearfix"></div>
+        <div style="height: 1in; text-align: center"><button id="spin" type="button" class="btn btn-default"
+                style="font-size: 0.5in; line-height: 0.5in">SPIN</button></div>
+    </div>
+
+    <audio id="spinAudio" preload="auto">
+        <source src="./audio/spin-and-stop.mp3" type="audio/mpeg" />
+    </audio>
+
+</body>
+<script src="./js/jquery.min.js"></script>
+<script>
+    
+    var allQuestions = [];
+    
+    var googleSheetsURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRgBxa7LX9uDG3cEvgiYodTQ0AzKvWEwBmX9gqk_SbMQv_-vsDgwDO2NGNfsPeTIp0CWDFst7eGokCb/pub?gid=0&single=true&output=csv"; // Place your Google Sheets CSV link here
+    
+    // Function to add a timestamp to the URL
+    function getURLWithTimestamp(url) {
+        var separator = url.includes("?") ? "&" : "?";
+        var timestampedURL = url + separator + "t=" + new Date().getTime();
+        console.log("Requested URL: ", timestampedURL); // Log the URL being requested
+        return timestampedURL;
+    }
+    
+    // Fetch questions from a Google Sheets CSV file
+    $.ajax({
+        url: getURLWithTimestamp(googleSheetsURL),
+        dataType: 'text',
+    }).done(successFunction);
+
+    function successFunction(data) {
+        console.log("Raw Result: ", data); // Log the raw result retrieved
+        allQuestions = data.split('\n').filter(Boolean); // Split by newline and remove any empty strings
+        console.log("Processed Questions: ", allQuestions); // Log the processed questions
+        initializeWheel(); // This function initializes the rest of your code
+    }
+
+
+    function initializeWheel() {
+        var activeQuestions = allQuestions.slice(0);
+        var firstClick = true;
+        $(document).on("click", "#spin", function() {
+            // Clear wheel options
+            $(".wheel").html("");
+            // Hide Logo
+            $(".wheel").css("background-image", "none");
+            // Play Spinning Audio
+            var audio = document.getElementById('spinAudio');
+            audio.play();
+            // get a plain array of wheel elements
+            var symbols = $(".wheel").get();
+            var spinButton = $(this);
+            // get rid of the focus, and disable the spin button
+            spinButton.prop("disabled", true).blur();
+            // counter for the number of spins
+            var spins = 0;
+            // inner function to do the spinning
+            function update() {
+                var randomActiveQuestionId;
+                for (var i = 0, l = symbols.length; i < l; i++) {
+                    randomActiveQuestionId = Math.floor(Math.random() * activeQuestions.length);
+                    $(".wheel").prepend(
+                        '<div style="display: none;" class="question"><div class="innerQuestion" style="width:100%; overflow:hidden; color:' +
+                        getQuestionColor() + ';">' + activeQuestions[randomActiveQuestionId] +
+                        "</div></div>");
+                    $(".wheel").find(".question:first-of-type").slideDown("fast");
+                }
+                if (++spins < 30) {
+                    // set a new, slightly longer interval for the next update. Makes it seem like the wheel is slowing down
+                    setTimeout(update, 10 + spins * 2);
+                } else {
+                    console.log(activeQuestions[randomActiveQuestionId]);
+                    // Prevent repeats until all questions have been displayed
+                    if (activeQuestions.length <= 1) {
+                        activeQuestions = allQuestions;
+                    } else {
+                        // remove question from activequestion array
+                        activeQuestions.splice(randomActiveQuestionId, 1);
+                    }
+                    // re-enable the spin button
+                    setTimeout(function() {
+                        spinButton.prop("disabled", false);
+                    }, 500);
+                    setTimeout(function() {
+                        $(".innerQuestion").css("overflow", "auto");
+                    }, 500);
+                }
+            }
+            // Start spinning
+            setTimeout(update, 1);
+        });
+
+        function getQuestionColor() {
+            return "#333333";
+            //return getRandomColor();
+        }
+
+        function getRandomColor() {
+            var palette = ["#54AEA8", "#93C944", "#58AEE2", "#A6BDD3", "#000000", "#969696", "#5A5A5A"];
+            return palette[Math.floor(Math.random() * palette.length)];
+        }
+
+        function audioPlayer(audioObj) {
+            audioObj[0].volume = 1;
+            audioObj[0].play();
+        }
+    }
+</script>
+
+</html>
